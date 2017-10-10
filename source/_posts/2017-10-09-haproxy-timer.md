@@ -16,7 +16,9 @@ comments: true
 # Haproxy 时间管理
 ## 概述
 ```
-    程序会有很多定时器，超时判断等，强依赖时间。假如直接依赖系统时间，系统时间调整就会导致紊乱，所以对于基础软件，都会自己管理时间，这个时间是单调递增的，不受系统时间的变化影响。例如libevent和haproxy都有这么做。
+    程序会有很多定时器，超时判断等，强依赖时间。假如直接依赖系统时间，
+    系统时间调整就会导致紊乱， 所以对于基础软件，都会自己管理时间，
+    这个时间是单调递增的，不受系统时间的变化影响。例如libevent和haproxy都有这么做。
 ```
 
 haproxy在系统初始化期间，会顺便初始化内部时间管理：
@@ -69,7 +71,8 @@ REGPRM2 void tv_update_date(int max_wait, int interrupted) {
     //当前时间+上次系统调整的时间跨度 = adjusted
     __tv_add(&adjusted, &date, &tv_offset);
     
-    //小于now代表操作系统往回调了时间，例如当前标准时间是12点，但是用shell命令调整为11点，这种情况需要重新计算offset，校准时间
+    //小于now代表操作系统往回调了时间，例如当前标准时间是12点，
+    //但是用shell命令调整为11点，这种情况需要重新计算offset，校准时间
     if (unlikely(__tv_islt(&adjusted, &now))) {
         goto fixup; /* jump in the past */
     }

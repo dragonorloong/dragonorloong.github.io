@@ -14,17 +14,20 @@ comments: true
 ---
 
 # Haproxy Acl
-##概述
+## 概述
 ```
 acl:Access Control Lists 访问控制列表
 
 acl格式如下所示：
     acl <aclname> <criterion> [flags] [operator] [<value>]
     aclname: acl名字，在后面的条件表达式中引用
-    criterion: 样本提取方法，从请求或者响应内容中提取值，如hdr(host)，从http头部提取host字段的值
-    flags: 匹配标志，-i 忽略大小写，-m str匹配字符串，-f从文件读取值等
+    criterion: 样本提取方法，从请求或者响应内容中提取值，
+               如hdr(host)，从http头部提取host字段的值
+    flags: 匹配标志，-i 忽略大小写，-m str匹配字符串，
+           -f从文件读取值等
     operator: 方法，匹配整形时，eq方法表示等于
-    value: 具体匹配的值，可以是多个，匹配整形时 “1 2 3”，匹配字符串时“netease.com baidu.com”
+    value: 具体匹配的值，可以是多个，匹配整形时 “1 2 3”，
+           匹配字符串时“netease.com baidu.com”
 ```
 ## 示例配置
 ```
@@ -47,20 +50,29 @@ acl格式如下所示：
 ```
 //acl关键字解析，例如hdr，path等
 struct acl_keyword {
-  const char *kw; //关键字名称，hdr
-  char *fetch_kw; //提取关键字名字，多个acl关键字对应的提取关键字一样，例如hdr，hdr_beg, hdr_dir都对应req.hdr
-  int match_type; /* Contain PAT_MATCH_* */ //匹配类型，可以是int，bool，str，ip等
-  int (*parse)(const char *text, struct pattern *pattern, int flags, char **err); //解析字段，例如hdr(host)，调用pat_parse_str把host字段保存起来
-  int (*index)(struct pattern_expr *expr, struct pattern *pattern, char **err); //把需要匹配的值保存链接起来，baidu.com，netease.com ali.com
+  //关键字名称，hdr
+  const char *kw;
+  //提取关键字名字，多个acl关键字对应的提取关键字一样，例如hdr，hdr_beg, hdr_dir都对应req.hdr
+  char *fetch_kw; 
+  /* Contain PAT_MATCH_* */ //匹配类型，可以是int，bool，str，ip等
+  int match_type; 
+  //解析字段，例如hdr(host)，调用pat_parse_str把host字段保存起来
+  int (*parse)(const char *text, struct pattern *pattern, int flags, char **err);
+
+  //把需要匹配的值保存链接起来，baidu.com，netease.com ali.com
+  int (*index)(struct pattern_expr *expr, struct pattern *pattern, char **err);
   void (*delete)(struct pattern_expr *expr, struct pat_ref_elt *);
   void (*prune)(struct pattern_expr *expr);
-  struct pattern *(*match)(struct sample *smp, struct pattern_expr *expr, int fill); //acl执行时的匹配函数
+  //acl执行时的匹配函数
+  struct pattern *(*match)(struct sample *smp, struct pattern_expr *expr, int fill);
   /* must be after the config params */
-  struct sample_fetch *smp; /* the sample fetch we depend on */ //样本提取结构体
+  /* the sample fetch we depend on */ //样本提取结构体
+  struct sample_fetch *smp;
 };
 
 struct acl {
-    struct list list;  //假如多个acl组成一个逻辑且的表达式，通过这个list链接起来
+    //假如多个acl组成一个逻辑且的表达式，通过这个list链接起来
+    struct list list;  
     char *name; //acl名字
     struct list expr; //acl表达式
     int cache_idx;
@@ -70,10 +82,14 @@ struct acl {
 
 //acl表达式
 struct acl_expr {
-    struct sample_expr *smp; //样本提取结构，例如从http头部数据的提起，获得host字段的值等
-    struct pattern_head pat; //样本提取以后，具体的匹配函数，对应acl_keyword中的函数指针
-    struct list list; //名字相同的acl可以包含多个acl_expr，通过链表连接起来
-    const char *kw; //acl名字
+    //样本提取结构，例如从http头部数据的提起，获得host字段的值等
+    struct sample_expr *smp; 
+    //样本提取以后，具体的匹配函数，对应acl_keyword中的函数指针
+    struct pattern_head pat; 
+    //名字相同的acl可以包含多个acl_expr，通过链表连接起来
+    struct list list;
+    //acl名字
+    const char *kw;
 }
 
 //acl_keyword中的匹配函数
@@ -84,7 +100,8 @@ struct pattern_head {
   void (*delete)(struct pattern_expr *, struct pat_ref_elt *);
   void (*prune)(struct pattern_expr *);
   struct pattern *(*match)(struct sample *, struct pattern_expr *, int);
-  int expect_type; /* type of the expected sample (SMP_T_*) */ //样本提取出来的类型
+  //样本提取出来的类型
+  int expect_type; /* type of the expected sample (SMP_T_*) */
 
   struct list head; /* This is a list of struct pattern_expr_list. */
 };
@@ -99,7 +116,8 @@ struct pattern_expr {
                                   * head. You can use only the function, and you must not use the
                                   * "head". Dont write "(struct pattern_expr *)any->pat_head->expr".
                                   */
-  struct list patterns;         /* list of acl_patterns */ //这个就是配置文件中的值，在示例中为netease.com ,baidu.com这几个值的一个链表
+  //这个就是配置文件中的值，在示例中为netease.com ,baidu.com这几个值的一个链表
+  struct list patterns;         /* list of acl_patterns */ 
   struct eb_root pattern_tree;  /* may be used for lookup in large datasets */
   struct eb_root pattern_tree_2;  /* may be used for different types */
   int mflags;                     /* flags relative to the parsing or matching method. */
@@ -112,7 +130,8 @@ struct acl_term {
   int neg;                    /* 1 if the ACL result must be negated */
 };
 
-//一个条件中，逻辑与的表达式通过这个结构体表示，示例中host_acl !head_acl 和 path_acl通过两个结构体表示
+//一个条件中，逻辑与的表达式通过这个结构体表示，
+//示例中host_acl !head_acl 和 path_acl通过两个结构体表示
 struct acl_term_suite {
   struct list list;           /* chaining of term suites */
   struct list terms;          /* list of acl_terms */
@@ -142,8 +161,13 @@ static struct acl_kw_list acl_kws = {ILH, {
 }
 }
 
-//smp_fetch_hdr用于从http从提取头部的函数，ARG2(0,STR,SINT)表示最少0个参数，最多两个参数，并且参数类型分别是长度，和整形，所以可以这么声明hdr(host, 10)，提取host前10个字符串
-//一个参数的mask由一个32位的整形表示，其中第三位代表参数的最少个数个数，后面的25位每5位代表一个参数，5位最大代表31中类型，所以现在的内置函数最多支持5个参数，31中内置类型，可以参考include/types/arg.h 和include/proto/arg.h src/arg.c的实现
+//smp_fetch_hdr用于从http从提取头部的函数，ARG2(0,STR,SINT)表示最少0个参数，
+//最多两个参数，并且参数类型分别是长度，和整形，所以可以这么声明hdr(host, 10)，
+//提取host前10个字符串, 一个参数的mask由一个32位的整形表示，
+//其中第三位代表参数的最少个数个数，后面的25位每5位代表一个参数，
+//5位最大代表31中类型，所以现在的内置函数最多支持5个参数，31中内置类型，
+//可以参考include/types/arg.h 和include/proto/arg.h src/arg.c的实现
+
 static struct sample_fetch_kw_list sample_fetch_keywords = {ILH, {
 { "req.hdr",         smp_fetch_hdr,            ARG2(0,STR,SINT), val_hdr, SMP_T_STR,  SMP_USE_HRQHV }
 }
@@ -210,10 +234,11 @@ int cfg_parse_listen(const char *file, int linenum, char **args, int kwm):cfgpar
             //构建acl_cond
             build_acl_cond：acl.c:1056
               parse_acl_cond：acl.c:900
-                //函数比较简单，创建acl_cond，指定pol字段到底是if还是unless
-                //对于or字段前面的所有acl，每个acl创建一个acl_term来保存，acl_term的neg表示前面是否有!
-                //对于or字段前面的所有acl，创建acl_term_suit连接起来
-                //对于所有or作为分隔符的acl，判断时是逻辑与的关系，每个or就是一个acl_term_suit，通过acl_cond的suitel字段连接
+              //函数比较简单，创建acl_cond，指定pol字段到底是if还是unless
+              //对于or字段前面的所有acl，每个acl创建一个acl_term来保存，acl_term的neg表示前面是否有!
+              //对于or字段前面的所有acl，创建acl_term_suit连接起来
+              //对于所有or作为分隔符的acl，判断时是逻辑与的关系，每个or就是一个acl_term_suit，
+              //通过acl_cond的suitel字段连接
                 
         //每个use_backend通过一个switching_rule表示，通过proxy的switching_rules连接起来
         rule = (struct switching_rule *)calloc(1, sizeof(*rule));

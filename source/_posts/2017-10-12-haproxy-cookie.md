@@ -48,7 +48,8 @@ cookie <name> [ rewrite | insert | prefix ] [ indirect ] [ nocache ]
 option persist    
     配置以后，无论server健康检查是否down，都会使用匹配的server，不会redispatch
 force-persist { if | unless } <condition>
-    满足acl条件的情况下，cookie匹配到某个后端server时，不管后端server的健康检查状态，都强制使用这个server
+    满足acl条件的情况下，cookie匹配到某个后端server时，不管后端server的健康检查状态，  
+    都强制使用这个server
     
 ignore-persist { if | unless } <condition>
     满足acl条件的情况下，忽略cookie等匹配，http-response中，不会插入cookie

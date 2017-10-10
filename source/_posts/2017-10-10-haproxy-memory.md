@@ -19,7 +19,7 @@ comments: true
 haproxy的内存管理基本上可以参考 Linux 内核的kmem_cache和slab，模式大同小异。ha为大部分常用的数据结构
 创建内存池，在程序初始化时，创建内存池。内存池的大概结构如下所示：
 
-![https://github.com/EastQ/images/blob/master/pool_image.jpg][1]
+![haproxy-memroy](2017-10-10-haproxy-memory/pool_image.jpg)
 
 与buffer相关的配置：
     tune.buffers.reserve 低水位线，buffer内存池预先分配的内存，默认值是2，对于前端流接口，内存池需要达到低水位线才开始分配，否则认为内存不足，挂起task
@@ -108,7 +108,8 @@ int init_buffer()
   //创建buffer的内存池，大小为buffer控制结构大小+实际数据大小，数据存储在buffer结构最后那个字段
   //data中，常见手法。指定MEM_F_SHARED后，两种大小相同的数据结构可以使用同一个内存池，
   //指定MEM_F_EXACT，16字节对齐
-  pool2_buffer = create_pool("buffer", sizeof (struct buffer) + global.tune.bufsize, MEM_F_SHARED|MEM_F_EXACT);
+  pool2_buffer = 
+    create_pool("buffer", sizeof (struct buffer) + global.tune.bufsize, MEM_F_SHARED|MEM_F_EXACT);
   if (!pool2_buffer)
     return 0;
   //指定buffer内存池的最小和最大内存

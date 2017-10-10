@@ -21,14 +21,22 @@ comments: true
 server配置如下：
     server <name> <address>[:[port]] [param*]
 
-name必须保证在同一个backend中唯一
-address可以加个前缀，指定后端地址的类型，支持ipv4,ipv6, unix domain, namespace
-port假如不指定时，使用客户端连过来的端口，也可以使用-1,+2,这样表示在客户端的端口上减去1，例如客户端连接127.0.0.1:83，配置-1以后，后端的端口为83-1=82
-param包括健康检查check，代理agent，cookie等
+name: 必须保证在同一个backend中唯一
+
+address: 可以加个前缀，指定后端地址的类型，
+   支持ipv4,ipv6, unix domain, namespace
+
+port: 假如不指定时，使用客户端连过来的端口，
+    也可以使用-1,+2,这样表示在客户端的端口上减去1，
+    例如客户端连接127.0.0.1:83，配置-1以后，
+    后端的端口为83-1=82
+
+param: 包括健康检查check，代理agent，cookie等
 ```
 ## 连接数
 ```
-关于连接限制，maxconn可以定义在global，default，listener，frontend, server这几个地方，另外还有minconn, maxconn， fullconn等，比较混乱，下面分析下各个参数的具体意思，从一个配置入手：
+关于连接限制，maxconn可以定义在global，default，listener，frontend, server这几个地方，
+另外还有minconn, maxconn， fullconn等，比较混乱，下面分析下各个参数的具体意思，从一个配置入手：
 
 global
     maxconn 81920 //整个进程所有前端加起来最多accept 81920个连接

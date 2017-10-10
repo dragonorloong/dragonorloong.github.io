@@ -60,7 +60,8 @@ comments: true
 
 ## 示例
 ```
-google haproxy stick-table的使用，总是会遇到一篇文章，说实话，这个示例很乱，没有说清楚，反而带来很多困扰
+google haproxy stick-table的使用，总是会遇到一篇文章，说实话，
+这个示例很乱，没有说清楚， 反而带来很多困扰
 http://blog.serverfault.com/2010/08/26/1016491873/（英文）
 http://blog.sina.com.cn/s/blog_704836f40101f6qz.html (中文翻译)
 本文也以这个为示例:
@@ -136,7 +137,8 @@ struct stktable {
   struct eb_root exps;      /* head of sticky session expiration tree */
   //存储额外字段的总大小，也就是在分配上面的stksess的时候，需要多分配data_size大小的内存
   int data_size; /* the size of the data that is prepended *before* stksess */
-  //每种存储类型与stkses的距离offset，为0代表不需要存储这种类型，类型包括server_id,gpt0，gpc0,conn_cnt等
+  //每种存储类型与stkses的距离offset，为0代表不需要存储这种类型，
+  //类型包括server_id,gpt0，gpc0,conn_cnt等
   int data_ofs[STKTABLE_DATA_TYPES]; /* negative offsets of present data types, or 0 if absent */
   //每种类型的参数，例如速率相关的都有个时间，conn_rate(100s)，这个100s就保存在这里
   union {
@@ -156,7 +158,8 @@ struct stkctr {
 struct stream {
   ...
   
-  //需要保存的数据，一开始先标记，等后面例如server_id等赋值以后，再从这里取出来保存，顺便增加conn_cnt等值
+  //需要保存的数据，一开始先标记，等后面例如server_id等赋值以后，
+  //再从这里取出来保存，顺便增加conn_cnt等值
   struct {
     struct stksess *ts;
     struct stktable *table;
