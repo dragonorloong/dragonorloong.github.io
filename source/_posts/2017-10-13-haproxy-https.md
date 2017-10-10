@@ -1,13 +1,13 @@
 ---
 type: "tags"
 layout: "tags"
-title: https 性能优化
-date: 2017-10-12 15:45:20
-category: https
+title: Https 性能优化
+date: 2017-10-13 15:45:20
+category: Https
 toc: true
 tags:
     - Haproxy
-    - https
+    - Https
 
 description: 本章主要说明常见的https 优化手段, 以及https的一些特性 
 comments: true
@@ -17,12 +17,10 @@ comments: true
 &emsp;&emsp;市面上面最近动不动就出一个帖子，“某某公司的https优化”，当然https也是大势所趋，所以也写写我所了解的https相关的内容。  
 &emsp;&emsp;对于https，对称加密的部分对性能的影响其实很小，所以优化的部分主要放在https的握手部分，第一次访问服务器的客户端来说，肯定需要经过一次完全握手，而完全握手最主要的性能消耗是在pre-master-key的生成， 这里涉及到大量的cpu计算，简单粗暴的理解，运算一个大数的一个大数次方加密，然后运算一个大数的一个大数次方解密。rsa加解密的过程大概是：    
 &emsp;&emsp;假设需要加密的数据是m,公钥是(n,e)， 加密过程为:
- ![encode](2017-10-13-haproxy-https/encode.png)
- ![haproxy-framework](2017-10-13-haproxy-https/encode.png)
- ![haproxy-framework](2017-10-04-haproxy-framework-md/haproxy-framework.png)
+ ![](encode.png)
 &emsp;&emsp;加密数据为c，发送c给服务端，私钥为(n,d)， 解密过程为：  
     
-![](2017-10-13-haproxy-https/decode.png)   
+![](decode.png)   
     
 &emsp;&emsp;rsa的数学原理可以参考这个链接：  
     
@@ -31,7 +29,7 @@ http://www.ruanyifeng.com/blog/2013/06/rsa_algorithm_part_one.html
 ```
     
 &emsp;&emsp;我用perf测试了使用ecdhe-ecdsa密钥交换签名算法的性能，小包，短连接，每次都是ssl完全握手，握手cpu占用78%，在握手部分，ecdsa签名占用50%以上。
-![](2017-10-13-haproxy-https/shakehands.png) 
+![](shakehands.png) 
 # hsts    
 &emsp;&emsp;https的好处很多，但是也需要用户配合，有的用户根本就不关心或者不了解https的好处，或者可能会习惯输入http://c.163.com，或者c.163.com，对于这种类型的输入，目前有个标准方案来强制用户使用https，这个就是HSTS（HTTP Strict Transport Security），hsts是在第一次通过https安全的访问服务端时，服务端在响应中添加http header：
 
@@ -64,22 +62,22 @@ http://www.ruanyifeng.com/blog/2013/06/rsa_algorithm_part_one.html
         
 &emsp;&emsp;单纯rsa ssl完全握手流程:     
 
-![](2017-10-13-haproxy-https/rsa_ssl.png) 
+![](rsa_ssl.png) 
         
         
 &emsp;&emsp; 支持tls ticket的话，服务端会额外发一个new session tlsticket的包：
 
-![](2017-10-13-haproxy-https/tls_ticket_wireshark.png)      
+![](tls_ticket_wireshark.png)      
         
         
 &emsp;&emsp;tls ticket复用握手:    
 
-![](2017-10-13-haproxy-https/tls_ticket_step.png)  
+![](tls_ticket_step.png)  
         
     
 &emsp;&emsp; 性能测试：         
     
-![](2017-10-13-haproxy-https/tls_ticket_test.png) 
+![](tls_ticket_test.png) 
 
         
 &emsp;&emsp;与openssl结合使用时，可以通过设置SSL_CTX_set_tlsext_ticket_key_cb函数，设置tls ticket的回调函数，加解密都是同一个函数，这样就能保证多个主机使用同一个tls key加密密钥：
@@ -101,12 +99,12 @@ http://www.ruanyifeng.com/blog/2013/06/rsa_algorithm_part_one.html
 
 &emsp;&emsp;整个流程如下图所示：
 
-![](2017-10-13-haproxy-https/keyless_frame_work.png) 
+![](keyless_frame_work.png) 
 
        
 &emsp;&emsp;具体的技术实现，openssl设置私钥计算的回调函数，加密套件不通，私钥计算的方式也不同，常见的ecdhe-rsa方式是在server-key-exchange中使用私钥，对于单纯的ras-rsa，是在client-key-exchange消息中使用私钥，在对应的地方调用回调函数进行私钥计算即可，为了性能考虑，肯定需要设计成异步非阻塞模式，所以需要保存当前握手函数内的上下文信息，目前我们poc使用的是openssl-1.0.2e版本， 服务端的握手主要修改s3_srvr.c中的ssl3_send_server_key_exchange和ssl3_get_client_key_exchange函数，当然需要定制一些错误码等。openssl我们尽量少修改源代码，对于具体的keyless访问，通过应用层代码来管理，会维持一个到keyless集群的连接池。这里可以使用ssl，也可以使用普通的tcp socket。这样设计主要是后续为了开放给用户使用的话，为了安全，使用ssl协议。内网自己搭建keyless集群的话，为了性能，可以是用裸tcp。超时管理等异常除以也放在应用层来做。目前nlb这边已经完成了基于openssl-1.0.2e/haproxy的异步无密钥模式poc验证。下面是具体的压测信息(下面图片有问题，3倍cpu只跑出来2.6倍的性能)：
 
-![](2017-10-13-haproxy-https/keyless_frame_work_test.png) 
+![](keyless_frame_work_test.png) 
  
       
 &emsp;&emsp;关于硬件支持方面的调研还没有开始
@@ -114,7 +112,7 @@ http://www.ruanyifeng.com/blog/2013/06/rsa_algorithm_part_one.html
 &emsp;&emsp;下面说说https的一些特性       
 &emsp;&emsp;sni主要用于在一个端口中绑定多个证书时，客户端在ssl的握手消息client hello中，通过tls扩展，发送域名信息，服务端获取返回域名对应的证书给客户，ssl抓包可以看到，如下信息：     
 
-![](2017-10-13-haproxy-https/sni.png)       
+![](sni.png)       
        
 &emsp;&emsp;具体与openssl的技术实现，也是通过回调函数实现的，设置
 
@@ -132,12 +130,12 @@ http://www.ruanyifeng.com/blog/2013/06/rsa_algorithm_part_one.html
 &emsp;&emsp;这协议的主要目的是在ssl层，协商上层http支持的协议，alpn是通过tls的扩展实现的，客户端在ssl握手阶段的client hello中发送自己支持的上层协议列表，服务端选择自己支持的协议，在server hello中返回，抓包信息如下：       
 &emsp;&emsp;客户端发送协议列表，http2和http1.1      
      
-![](2017-10-13-haproxy-https/alpn_client.png) 
+![](alpn_client.png) 
     
 
 &emsp;&emsp;服务端选择http1.1     
     
-![](2017-10-13-haproxy-https/alpn_server.png) 
+![](alpn_server.png) 
     
 
 &emsp;&emsp;与openssl结合的具体实现，也是通过回调函数实现的，在回调函数中，根据客户端支持的协议列表，以及自己支持的协议列表，选择一个。      
@@ -161,11 +159,11 @@ http://www.ruanyifeng.com/blog/2013/06/rsa_algorithm_part_one.html
         
 &emsp;&emsp;客户端在client hello中发送一个ocsp request的扩展      
      
-![](2017-10-13-haproxy-https/ocsp_client.png)      
+![](ocsp_client.png)      
      
 &emsp;&emsp;服务端在发送证书状态以后，会发送一个ocsp响应的包             
      
-![](2017-10-13-haproxy-https/ocsp_server.png)      
+![](ocsp_server.png)      
           
 &emsp;&emsp;因为ocsp响应的有效期只有几天，所以需要隔一段时间到证书颁发机构获取ocsp响应，下面的链接是配合haproxy使用的脚本链接：    
      
