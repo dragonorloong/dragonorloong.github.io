@@ -1,7 +1,10 @@
 ---
-title: 2017-10-26-linux-network-softirq
+title: linux软中断相关
 date: 2017-10-26 21:01:25
+category: tcp/ip
 tags:
+    - linux 
+    - tcp/ip
 ---
 
 struct softnet_data {

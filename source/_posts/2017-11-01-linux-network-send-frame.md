@@ -1,7 +1,9 @@
 ---
-title: 2017-11-01-linux-network-send-frame
+title: linux 数据发送
 date: 2017-11-01 20:54:26
 tags:
+    - linux 
+    - tcp/ip
 ---
 
 l3调用
