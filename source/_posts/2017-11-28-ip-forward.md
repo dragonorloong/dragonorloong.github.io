@@ -1,7 +1,11 @@
 ---
-title: 2017-11-28-ip-forward
+title: linux ip转发
 date: 2017-11-28 19:28:06
 tags:
+    - linux
+    - tcp/ip
+description: 本章说明ip层最后的处理流程，包括路由以后的转发和本地投递
+comments: true
 ---
 
 # 转发
@@ -12,7 +16,7 @@ tags:
   假如遇到更加合适的路径，并且没有指定源路由选项，会发送路由重定向选项
   最后会经过netfilter， 然后调用ip_forward_finish函数， 此时netfilter的选项是NF_IP_FORWARD, 之前在ip_rcv中，选项是NF_IP_PRE_ROUTING
 
-  
+ ``` 
  static inline int ip_forward_finish(struct sk_buff *skb)
 {
   struct ip_options * opt = &(IPCB(skb)->opt);
@@ -25,6 +29,7 @@ tags:
 
   return dst_output(skb);
 } 
+```
 
 
 所有的传输都会通过dst_output， dstoutput会调用虚拟函数output, 对于单播来说，会初始化为ip_output，如果是多播，会调用ip_mc_output，分段也在这两个函数内处理，最后会调用ip_finish_output来关联邻居子系统
@@ -33,6 +38,7 @@ tags:
 
   假如路由得知本地主机是封包的目的地，会初始化input为ip_local_deliver，ip_local_deliver函数会先处理分段相关的逻辑, 分段一般只有udp，icmp等协议使用，因为tcp协议有自己的mss，基本上就是使用MTU大小
 
+```
   int ip_local_deliver(struct sk_buff *skb)
   {
     /*
@@ -51,11 +57,13 @@ tags:
       return NF_HOOK(PF_INET, NF_IP_LOCAL_IN, skb, skb->dev, NULL,
                      ip_local_deliver_finish);
   }
+```
 
 ## ip分段重组
   收到ip分段，肯定需要先保存，直到所有分段都已经收到时，就投递给上层协议; 或者超时以后，定时器触发回收流程，并且发送icmp错误给源端;
   在本地组包数据结构，如图所示：
 
+```
 /* Process an incoming IP datagram fragment. */
 struct sk_buff *ip_defrag(struct sk_buff *skb, u32 user)
 {
@@ -74,7 +82,8 @@ struct sk_buff *ip_defrag(struct sk_buff *skb, u32 user)
 
   /* Lookup (or create) queue header */
   //查询之前分组，主键是id, saddr, daddr, protocol
-  //假如没有查询到，则会创建一个新的qp数据结构，并且插入到hash表里面，并且设置超时时间
+  //假如没有查询到，则会创建一个新的qp数据结构，
+  //并且插入到hash表里面，并且设置超时时间
   if ((qp = ip_find(iph, user)) != NULL) {
     struct sk_buff *ret = NULL;
 
@@ -95,5 +104,4 @@ struct sk_buff *ip_defrag(struct sk_buff *skb, u32 user)
   kfree_skb(skb);
   return NULL;
 }
-  
-
+```

@@ -1,9 +1,10 @@
 ---
-title: linux 数据发送
+title: linux 驱动层数据发送
 date: 2017-11-01 20:54:26
 tags:
     - linux 
     - tcp/ip
+description: 网卡驱动层发送流程, 占坑，以后再总结
 ---
 
 l3调用
