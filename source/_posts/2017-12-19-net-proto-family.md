@@ -71,3 +71,116 @@ tags:
 
     ......
 
+    static int __init inet_init(void)
+    {
+          struct sk_buff *dummy_skb;
+          struct inet_protosw *q;
+          struct list_head *r;
+          int rc = -EINVAL;
+
+          BUILD_BUG_ON(sizeof(struct inet_skb_parm) > sizeof(dummy_skb->cb));
+
+          //主要是创建各种sock的内存池, 然后把协议添加到全局链表proto_list中
+          rc = proto_register(&tcp_prot, 1);
+          if (rc)
+                  goto out;
+
+          rc = proto_register(&udp_prot, 1);
+          if (rc)
+                  goto out_unregister_tcp_proto;
+
+          rc = proto_register(&raw_prot, 1);
+          if (rc)
+                  goto out_unregister_udp_proto;
+
+          /*
+           *      Tell SOCKET that we are alive...
+           */
+
+          //把PF_INET协议簇添加到sock_register, 对应的操作函数是inet_family_ops, 创建套接字是的创建函数
+          (void)sock_register(&inet_family_ops);
+
+          /*
+           *      Add all the base protocols.
+           */
+
+          //把四层协议添加爱到全局变量inet_proto中，注册三层向四层传递时的接收函数
+          if (inet_add_protocol(&icmp_protocol, IPPROTO_ICMP) < 0)
+                  printk(KERN_CRIT "inet_init: Cannot add ICMP protocol\n");
+          if (inet_add_protocol(&udp_protocol, IPPROTO_UDP) < 0)
+                  printk(KERN_CRIT "inet_init: Cannot add UDP protocol\n");
+          if (inet_add_protocol(&tcp_protocol, IPPROTO_TCP) < 0)
+                  printk(KERN_CRIT "inet_init: Cannot add TCP protocol\n");
+#ifdef CONFIG_IP_MULTICAST
+          if (inet_add_protocol(&igmp_protocol, IPPROTO_IGMP) < 0)
+                  printk(KERN_CRIT "inet_init: Cannot add IGMP protocol\n");
+#endif
+
+          /* Register the socket-side information for inet_create. */
+          for (r = &inetsw[0]; r < &inetsw[SOCK_MAX]; ++r)
+                  INIT_LIST_HEAD(r);
+
+          //把四层协议的inet_protosw结构注册到inetsw中, 用于暂时未知
+          for (q = inetsw_array; q < &inetsw_array[INETSW_ARRAY_LEN]; ++q)
+                  inet_register_protosw(q);
+
+          /*
+           *      Set the ARP module up
+           */
+
+          //注册二层向三层投递时，arp类型的处理函数, 
+          //以及neight模块的初始化, /proc参数读取，设置初始化
+          arp_init();
+
+          /*
+           *      Set the IP module up
+           */
+
+          //路由子系统的初始化， ip_peer初始化，主要对每一个地址，保持一个连接信息，生成ip包的id
+          ip_init();
+
+          //创建内核tcp_socket来发送reset包
+          tcp_v4_init(&inet_family_ops);
+
+          /* Setup TCP slab cache for open requests. */
+          tcp_init();
+
+          /* Add UDP-Lite (RFC 3828) */
+          udplite4_register();
+
+          /*
+           *      Set the ICMP layer up
+           */
+
+          //每个cpu创建一个内核icmp套接字，用于处理ip请求的响应, 错误报告
+          icmp_init(&inet_family_ops);
+
+          /*
+           *      Initialise the multicast router
+           */
+#if defined(CONFIG_IP_MROUTE)
+          ip_mr_init();
+#endif
+   /*
+           *      Initialise per-cpu ipv4 mibs
+           */
+
+          if(init_ipv4_mibs())
+                  printk(KERN_CRIT "inet_init: Cannot init ipv4 mibs\n"); ;
+
+          ipv4_proc_init();
+
+          ipfrag_init();
+
+          //二层向三层投递是，ip协议的接收函数注册
+          dev_add_pack(&ip_packet_type);
+
+          rc = 0;
+  out:
+          return rc;
+  out_unregister_udp_proto:
+          proto_unregister(&udp_prot);
+  out_unregister_tcp_proto:
+          proto_unregister(&tcp_prot);
+          goto out;
+    }
