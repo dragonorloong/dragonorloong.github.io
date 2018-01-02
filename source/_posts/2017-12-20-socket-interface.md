@@ -4,6 +4,8 @@ date: 2017-12-20 19:42:55
 tags:
   - linux
   - tcp/ip
+
+description: 本章主要说明socket 接口层的初始化过程
 ---
 
 # 套接口层的系统初始化

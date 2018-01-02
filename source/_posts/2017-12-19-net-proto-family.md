@@ -4,6 +4,8 @@ date: 2017-12-19 20:08:41
 tags:
   - linux
   - tcp/ip
+
+description: 本章主inet 协议簇的初始化过程
 ---
    linux 目前最多支持种协议簇, 此外，还有一个地址簇的概念，目前来说，他们是一一对应的，如下图所示：
    ![net_protocol_family](2017-12-19-net-protocol-family/protocol_family.png)

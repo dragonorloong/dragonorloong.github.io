@@ -1,5 +1,5 @@
 ---
-title: 2017-12-24-socket-bind
+title: socket bind过程
 date: 2017-12-24 20:20:33
 tags:
     - linux
