@@ -58,4 +58,29 @@ enum {
   
    TCP_MAX_STATES  
 }
+
+
+int inet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len) {
+ //sysctl_ip_nonlocal_bind, 系统级别设置，这个套接字是否支持绑定非本地ip地址
+ //freebind socket级别设置，套接字是否支持绑定非本地ip地址
+
+ if (!sysctl_ip_nonlocal_bind &&
+      !inet->freebind &&
+      addr->sin_addr.s_addr != INADDR_ANY &&
+      chk_addr_ret != RTN_MULTICAST &&
+      chk_addr_ret != RTN_BROADCAST)
+    goto out; 
+
+
+  //对于tcp，会调用inet_csk_get_port
+  //对于每一个bind的端口，会存储在tcp_hashinfo中
+  //新版本的内核支持S_REUSEPORT接口
+  //对于udp来说，调用__udp_lib_get_port函数
+  if (sk->sk_prot->get_port(sk, snum)) {
+  inet_csk_get_port(struct inet_hashinfo *hashinfo,
+          struct sock *sk, unsigned short snum,
+          int (*bind_conflict)(const struct sock *sk,
+             const struct inet_bind_bucket *tb))
+
+}
 ```
