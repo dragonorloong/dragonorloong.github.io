@@ -8,14 +8,22 @@ tags:
 description: 本章主要说明tcp 服务端 syn/ack 的握手流程
 ---
 # 主要函数调用栈
-```
+```cpp
 tcp_v4_rcv
  ->tcp_v4_do_rcv
     ->tcp_rcv_state_process
        ->tcp_v4_conn_request
           ->tcp_v4_send_synack
+```
 
-只说明主要流程，具体的例如超时处理，time_wait等后面专门细化
+本章只说明主要流程，具体的例如超时处理，time_wait等后面专门细化
+收到syn包的处理流程大概是：
+```
+    1 检查包格式
+    2 在hash表中查找listen sk
+    3 创建连接请求块，链接到半连接队列
+    4 构建syn/ack包，回包
+    5 设置定时器，处理超时情况
 ```
 
 # 详细流程
@@ -23,7 +31,7 @@ tcp_v4_rcv
 入口函数在之前协议簇初始化时，就已经注册了tcp协议对应的处理函数,
 在ip层收到tcp包时，会调用tcp_v4_rcv处理
 
-```
+```cpp
 static struct net_protocol tcp_protocol = {
   .handler =  tcp_v4_rcv,
   .err_handler =  tcp_v4_err,
