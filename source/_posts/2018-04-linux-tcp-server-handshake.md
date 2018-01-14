@@ -1,5 +1,5 @@
 ---
-title: linux tcp 服务端握手流程
+title: linux tcp 服务端syn包接收
 date: 2018-01-04 19:17:34
 tags:
   - linux
@@ -447,7 +447,8 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
   if (want_cookie) {
       reqsk_free(req);
   } else {
-    //非cookie模式，添加req 到半连接队列，并且设置超时时间
+    //非cookie模式，添加req 到半连接队列，并且设置超时时间, TCP_TIMEOUT_INIT是3s， 
+    //3s重传一次，总共5次，这就是syn 攻击的一个原理
     inet_csk_reqsk_queue_hash_add(sk, req, TCP_TIMEOUT_INIT);
   }
   return 0;
