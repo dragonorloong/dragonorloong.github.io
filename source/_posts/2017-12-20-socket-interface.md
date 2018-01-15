@@ -11,6 +11,7 @@ description: 本章主要说明socket 接口层的初始化过程
 # 套接口层的系统初始化
   socket_init在系统启动时在初始化列表中被调用，通过core_initcall宏加入到内核的初始化列表中
 
+```cpp
   static int __init sock_init(void)
   {
           /*
@@ -94,12 +95,14 @@ description: 本章主要说明socket 接口层的初始化过程
                   return -ENOMEM;
           return 0;
   }
+```
 
 
 
 
 socket 套接字数据结构，大部分字段都可以从名字看出来含义，其中ops就是上一章中写的存在inetsw中的类型
 该结构完成从协议无关的套接口层到协议相关的传输层的连接，而proto结构(tcp_prot)等又将传输层映射到网络层
+```cpp
 /**
  *  struct socket - general BSD socket
  *  @state: socket state (%SS_CONNECTED, etc)
@@ -121,5 +124,6 @@ struct socket {
         wait_queue_head_t       wait;
         short                   type;
 };
+```
 
 

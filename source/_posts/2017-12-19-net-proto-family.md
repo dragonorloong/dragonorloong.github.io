@@ -12,15 +12,18 @@ description: 本章主inet 协议簇的初始化过程
 
    每个协议簇都用一个net_proto_family结构实例表示, 对于PF_INET来说定义如下:
 
+```cpp
    static struct net_proto_family inet_family_ops = {
         .family = PF_INET,
         .create = inet_create,
         .owner  = THIS_MODULE,
    };
+```
 
   后续socket相关的操作都会使用inetsw_array中的数据结构，根据socket类型，组成一个hash表，通过链式解决冲突问题, 数据结构如下图所示：
    ![inetssw](2017-12-19-net-protocol-family/inetsw.png)
     
+```cpp
   static struct inet_protosw inetsw_array[] =
   {
           {
@@ -55,7 +58,7 @@ description: 本章主inet 协议簇的初始化过程
                  .flags =      INET_PROTOSW_REUSE,
          }
   }; 
-
+```
   当ip层收到数据以后，需要根据四层协议的类型，转发给相关函数处理，该函数也是在数组中，数组下表是四层协议类型, 单个结构类型为net_protocol数据结构如下图所示：
    ![inet_protos](2017-12-19-net-protocol-family/inet_protos.png)
 
@@ -73,6 +76,7 @@ description: 本章主inet 协议簇的初始化过程
 
     ......
 
+```cpp
     static int __init inet_init(void)
     {
           struct sk_buff *dummy_skb;
@@ -186,3 +190,4 @@ description: 本章主inet 协议簇的初始化过程
           proto_unregister(&tcp_prot);
           goto out;
     }
+```
