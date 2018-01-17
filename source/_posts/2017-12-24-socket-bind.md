@@ -8,7 +8,7 @@ tags:
 description: 本章主要说明bind系统调用的流程
 ---
 
-```
+```cpp
 asmlinkage long sys_bind(int fd, struct sockaddr __user *umyaddr, int addrlen)
 {
     struct socket *sock;

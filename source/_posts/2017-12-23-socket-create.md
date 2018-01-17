@@ -14,7 +14,7 @@ description: 本章说明socket的创建流程，从socket接口层，然后到�
 
 # socket创建内核态操作流程
 ## 代码流水帐
-```
+```cpp
     asmlinkage long sys_socket(int family, int type, int protocol)
     {
         int retval;
@@ -93,7 +93,7 @@ tcp sock之间的关系，如下图所示:
 ![sock_fd](2017-12-23-socket-create/sock_fd.png)
 
 # 数据结构
-```
+```cpp
 //最外层socket数据结构
 struct socket {
     socket_state        state;

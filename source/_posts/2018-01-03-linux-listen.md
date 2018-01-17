@@ -7,7 +7,7 @@ tags:
 
 description: 本章主要说明listen系统调用过程
 ---
-```
+```cpp
 //系统调用入口
 asmlinkage long sys_listen(int fd, int backlog)
 {

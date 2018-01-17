@@ -16,7 +16,7 @@ comments: true
   假如遇到更加合适的路径，并且没有指定源路由选项，会发送路由重定向选项
   最后会经过netfilter， 然后调用ip_forward_finish函数， 此时netfilter的选项是NF_IP_FORWARD, 之前在ip_rcv中，选项是NF_IP_PRE_ROUTING
 
- ``` 
+ ``` cpp
  static inline int ip_forward_finish(struct sk_buff *skb)
 {
   struct ip_options * opt = &(IPCB(skb)->opt);
@@ -38,7 +38,7 @@ comments: true
 
   假如路由得知本地主机是封包的目的地，会初始化input为ip_local_deliver，ip_local_deliver函数会先处理分段相关的逻辑, 分段一般只有udp，icmp等协议使用，因为tcp协议有自己的mss，基本上就是使用MTU大小
 
-```
+```cpp
   int ip_local_deliver(struct sk_buff *skb)
   {
     /*
@@ -63,7 +63,7 @@ comments: true
   收到ip分段，肯定需要先保存，直到所有分段都已经收到时，就投递给上层协议; 或者超时以后，定时器触发回收流程，并且发送icmp错误给源端;
   在本地组包数据结构，如图所示：
 
-```
+```cpp
 /* Process an incoming IP datagram fragment. */
 struct sk_buff *ip_defrag(struct sk_buff *skb, u32 user)
 {

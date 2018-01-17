@@ -12,7 +12,7 @@ comments: true
 ---
 # 数据结构及初始化
 每个cpu都会有一个softnet_data数据结构，cpu的softnet_data是由net_dev_init在引导期间执行初始化的，在初始化期间，还会注册网卡软中断对应的处理程序
-```
+```cpp
 subsys_initcall(net_dev_init);
 
 static int __init net_dev_init(void)
@@ -109,7 +109,7 @@ napi 中断发生时，调用netif_rx_schedule函数，先调用netif_rx_schedul
 从cpu的softdata中，轮寻poll_list中的每个设备，调用设备驱动的poll函数，poll函数负责从设备映射的内存中拷贝数据包，封装成skb，然后调用netif_receive_skb传到协议栈处理
 在驱动层的的后面，会调用eth_type_trans设置l3的protocol字段和pkt_type，protocol我所知道的有arp，ip， pkt_type主要是指PACKET_OTHERHOST/PACKET_HOST/PACKET_BROADCAST/PACKET_MULTICAST等
 
-```
+```cpp
 int netif_receive_skb(struct sk_buff *skb)
   //假如是bond网卡，把skb->dev 设置为原始网卡的master网卡
   orig_dev = skb_bond(skb);

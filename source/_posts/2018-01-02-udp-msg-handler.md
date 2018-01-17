@@ -8,7 +8,7 @@ tags:
 description: 本章主要说明udp的数据发送和接收过程
 ---
 # 数据发送
-```
+```cpp
 //系统调用最后进入sys_sendto函数
 asmlinkage long sys_sendto(int fd, void __user *buff, size_t len,
          unsigned flags, struct sockaddr __user *addr,
@@ -102,6 +102,7 @@ int inet_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
   //调用udp_send_msg
   return sk->sk_prot->sendmsg(iocb, sk, msg, size);
 }
+```
 
 注释1：
   该函数分为设置flag为MSG_MORE, 则只会把数据放到sock的write_queue中，假如是第一个数据包
@@ -112,6 +113,7 @@ int inet_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
 注释2:
   udp 调用connect， 会在inet_sock的设置daddr和dport，并且把sk_state 设置为TCP_ESTABLISHED
 
+```cpp
 int udp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
     size_t len) {
 }
@@ -137,7 +139,7 @@ static struct sk_buff *sock_alloc_send_pskb(struct sock *sk,
 
 # 数据接收
 ## 内核自动接收
-```
+```cpp
 ip层接收完数据以后，根据四层协议类型，调用udp_rcv函数
 __inline__ int udp_rcv(struct sk_buff *skb)
 {
@@ -225,6 +227,6 @@ out:
 
 ## 用户调用recvfrom函数
 ```
-调用sys_recvfrom函数->sock_common_recvmsg->udp_rcvmsg 然后从receive_queue队列中获取数据，没有数据的话，会等待，直到超时
-或者非阻塞直接返回, 假如用户传进去的缓冲区过小，数据包会截断
+调用sys_recvfrom函数->sock_common_recvmsg->udp_rcvmsg 然后从receive_queue队列中获取数据，
+没有数据的话，会等待，直到超时或者非阻塞直接返回, 假如用户传进去的缓冲区过小，数据包会截断
 ```
