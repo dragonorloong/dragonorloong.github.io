@@ -154,3 +154,29 @@ nt-port 18080
         //配置slowstart以后，会在启动的时候，每次增加权重的5%，在配置的时间内(10s)内完成整个启动
         server slowstart-server 192.168.1.3:8081 slowstart 10s
 ```
+
+# 负载均衡算法
+首先分为两个二叉树， 正常和备用连接数，只有在正常的全挂了，才会使用备用服务器列表
+
+加权最少连接数：
+使用当前连接数/权重当做key，每次都取key最小的服务，每次分配都先会更新key，更新key是先出队列，然后再入队。
+
+加权轮询：
+用户设置的最大权值为max=256，初始key为用户的max_weight - weight，这样weight越大，key越小，优先级越高。
+total = weight1 + weight2, 以后每次都是key的增长值为max*(total/weight1)， 这样保证总是成反比例增长。
+
+first:
+总是取server id值最小的后端
+
+static-rr
+分配一个所有server大小的数组，选取key + total/total 最大的server ，分配到数组当前位置，然后key再增加weight，
+继续分配，基本上按key占的比例分配席位, 获取server时，轮询数组
+缺点: 有服务加入时，需要重新分配数组
+
+source  map-based
+和上面算法一样，用client ip获取hash作为数组的下标
+
+source consistent
+一致性hash算法，根据权重，在红黑树中，根据权重比重设置份额，假如server 健康检查失败，从树中删除节点，
+之前匹配的ip，分配到pre node或者next node中
+
