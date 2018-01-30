@@ -76,6 +76,8 @@ frontend fe2
     option http-keepalive //默认选项，对于client带有conntion: keep-alive的选项，保持连接
     option http-server-close //客户端保持连接，服务端关闭连接
     option forceclose //完成整个响应以后，关闭两端连接
+    option http-tunnel //只有第一个请求被解析，后面的内容只是透明转发, 当在头部中发现upgrade字段时，也会转变成这种模式，所以haproxy天生支持websocket
+    option httpclose //在请求和响应两端分别加上connection: close字段
 ```
 
 ### 连接复用
