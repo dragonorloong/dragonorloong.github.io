@@ -84,3 +84,22 @@ int inet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len) {
 
 }
 ```
+
+accept 系统调用被阻塞时，会调用
+```
+inet_csk_wait_for_connect
+  // 设置这个标志
+  --> prepare_to_wait_exclusive
+    --> wait->flags |= WQ_FLAG_EXCLUSIVE;  
+
+//唤醒操作:
+__wake_up_common
+    if (curr->func(curr, mode, wake_flags, key) &&
+        (flags & WQ_FLAG_EXCLUSIVE) && !--nr_exclusive)
+      //只调用一次就break
+      break;
+
+epoll 惊群已经全部解决
+fork之前的epoll_create默认解决, 边缘触发扩展解决, 水平触发没有解决
+fork之后的epoll_create 通过设置标志解决,EPOLLEXCLUSIVE
+```
