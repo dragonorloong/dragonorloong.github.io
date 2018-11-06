@@ -1,0 +1,76 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta name="generator" content="Hexo 3.8.0"><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport"><meta content="yes" name="apple-mobile-web-app-capable"><meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"><meta content="telephone=no" name="format-detection"><meta name="description" content="澳门新葡京"><title>Haproxy 时间管理 | 天天反水, 美女荷官发牌   ---澳门新葡京</title><link rel="stylesheet" type="text/css" href="/css/style.css?v=0.0.0"><link rel="stylesheet" type="text/css" href="//cdn.bootcss.com/normalize/7.0.0/normalize.min.css"><link rel="stylesheet" type="text/css" href="//cdn.bootcss.com/pure/1.0.0/pure-min.css"><link rel="stylesheet" type="text/css" href="//cdn.bootcss.com/pure/1.0.0/grids-responsive-min.css"><link rel="stylesheet" href="//cdn.bootcss.com/font-awesome/4.7.0/css/font-awesome.min.css"><script type="text/javascript" src="//cdn.bootcss.com/jquery/3.2.1/jquery.min.js"></script><link rel="Shortcut Icon" type="image/x-icon" href="/favicon.ico"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png"></head><body><div class="body_container"><div id="header"><div class="site-name"><h1 class="hidden">Haproxy 时间管理</h1><a id="logo" href="/.">天天反水, 美女荷官发牌   ---澳门新葡京</a><p class="description"></p></div><div id="nav-menu"><a href="/." class="current"><i class="fa fa-home"> 首页</i></a><a href="/archives/"><i class="fa fa-archive"> 归档</i></a><a href="/about/"><i class="fa fa-user"> 关于</i></a></div></div><div id="layout" class="pure-g"><div class="pure-u-1 pure-u-md-3-4"><div class="content_container"><div class="post"><h1 class="post-title">Haproxy 时间管理</h1><div class="post-meta">Oct 9, 2017<span> | </span><span class="category"><a href="/categories/Haprxoy/">Haprxoy</a></span></div><div class="clear"><div id="toc" class="toc-article"><div class="toc-title">文章目录</div><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#Haproxy-时间管理"><span class="toc-number">1.</span> <span class="toc-text">Haproxy 时间管理</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#概述"><span class="toc-number">1.1.</span> <span class="toc-text">概述</span></a></li></ol></li></ol></div></div><div class="post-content"><h1 id="Haproxy-时间管理"><a href="#Haproxy-时间管理" class="headerlink" title="Haproxy 时间管理"></a>Haproxy 时间管理</h1><h2 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">程序会有很多定时器，超时判断等，强依赖时间。假如直接依赖系统时间，</span><br><span class="line">系统时间调整就会导致紊乱， 所以对于基础软件，都会自己管理时间，</span><br><span class="line">这个时间是单调递增的，不受系统时间的变化影响。例如libevent和haproxy都有这么做。</span><br></pre></td></tr></table></figure>
+<p>haproxy在系统初始化期间，会顺便初始化内部时间管理：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">    tv_update_date(-1,-1);</span><br><span class="line">    </span><br><span class="line">``` </span><br><span class="line"></span><br><span class="line">每次epoll_wait返回以后，会更新和校准时间：</span><br></pre></td></tr></table></figure>
+<pre><code>tv_update_date(wait_time, status);    
+</code></pre><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>//全局变量<br>unsigned int   curr_sec_ms;     /<em> millisecond of current second (0..999) </em>/<br>unsigned int   ms_left_scaled;  /<em> milliseconds left for current second (0..2^32-1) </em>/<br>unsigned int   now_ms;          /<em> internal date in milliseconds (may wrap) </em>/<br>unsigned int   samp_time;       /<em> total elapsed time over current sample </em>/<br>unsigned int   idle_time;       /<em> total idle time over current sample </em>/<br>unsigned int   idle_pct;        /<em> idle to total ratio over last sample (percent) </em>/<br>struct timeval now;             /<em> internal date is a monotonic function of real clock </em>/<br>struct timeval date;            /<em> the real current date </em>/<br>struct timeval start_date;      /<em> the process’s start date </em>/<br>struct timeval before_poll;     /<em> system date before calling poll() </em>/<br>struct timeval after_poll;      /<em> system date after leaving poll() </em>/</p>
+<p>REGPRM2 void tv_update_date(int max_wait, int interrupted) {<br>{<br>    //记录时间差，操作系统时间调整的跨度<br>    static struct timeval tv_offset; /<em> warning: signed offset! </em>/</p>
+<pre><code>//adjust 校准以后的时间，deadline一次循环允许的最长时刻
+struct timeval adjusted, deadline;
+
+//获取当前系统时间
+gettimeofday(&amp;date, NULL);
+
+//max_wait小于0， 表示系统初始化
+if (unlikely(max_wait &lt; 0)) {
+    tv_zero(&amp;tv_offset);
+    adjusted = date;
+    after_poll = date;
+    samp_time = idle_time = 0;
+    idle_pct = 100;
+    goto to_ms;
+}
+
+//当前时间+上次系统调整的时间跨度 = adjusted
+__tv_add(&amp;adjusted, &amp;date, &amp;tv_offset);
+
+//小于now代表操作系统往回调了时间，例如当前标准时间是12点，
+//但是用shell命令调整为11点，这种情况需要重新计算offset，校准时间
+if (unlikely(__tv_islt(&amp;adjusted, &amp;now))) {
+    goto fixup; /* jump in the past */
+}
+
+//一个循环运行时间大于max_wait + MAX_DELAY_MS时，认为操作系统时间往后调了，例如从12点调到13点
+/* OK we did not jump backwards, let&apos;s see if we have jumped too far
+* forwards. The poll value was in &lt;max_wait&gt;, we accept that plus
+* MAX_DELAY_MS to cover additional time.
+*/
+_tv_ms_add(&amp;deadline, &amp;now, max_wait + MAX_DELAY_MS);
+if (likely(__tv_islt(&amp;adjusted, &amp;deadline)))
+    goto to_ms; /* OK time is within expected range */
+
+fixup:
+    /* Large jump. If the poll was interrupted, we consider that the date
+    * has not changed (immediate wake-up), otherwise we add the poll
+    * time-out to the previous date. The new offset is recomputed.
+    */
+    //上次时间now + max_wait当做adjusted，重新计算offset
+    _tv_ms_add(&amp;adjusted, &amp;now, interrupted ? 0 : max_wait);
+
+    tv_offset.tv_sec  = adjusted.tv_sec  - date.tv_sec;
+    tv_offset.tv_usec = adjusted.tv_usec - date.tv_usec;
+
+    if (tv_offset.tv_usec &lt; 0) {
+        tv_offset.tv_usec += 1000000;
+        tv_offset.tv_sec--;
+    }
+
+to_ms:
+    //内部时间永远是单调递增的
+    now = adjusted;
+    curr_sec_ms = now.tv_usec / 1000;            /* ms of current second */
+
+    /* For frequency counters, we&apos;ll need to know the ratio of the previous
+    * value to add to current value depending on the current millisecond.
+    * The principle is that during the first millisecond, we use 999/1000
+    * of the past value and that during the last millisecond we use 0/1000
+    * of the past value. In summary, we only use the past value during the
+    * first 999 ms of a second, and the last ms is used to complete the
+    * current measure. The value is scaled to (2^32-1) so that a simple
+    * multiply followed by a shift gives us the final value.
+    */
+    ms_left_scaled = (999U - curr_sec_ms) * 4294967U;
+    now_ms = now.tv_sec * 1000 + curr_sec_ms;
+    return;
+</code></pre><p>}</p>
+</div><div class="tags"><a href="/tags/Haproxy/">Haproxy</a><a href="/tags/负载均衡/">负载均衡</a></div><div class="post-nav"><a href="/2017/10/10/2017-10-10-haproxy-memory/" class="pre">Haproxy 内存管理</a><a href="/2017/10/08/2017-10-08-haproxy-signal/" class="next">Haproxy 信号处理</a></div></div></div></div><div class="pure-u-1-4 hidden_mid_and_down"><div id="sidebar"><div class="widget"><div class="widget-title"><i class="fa fa-folder-o"> 分类</i></div><ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/Haprxoy/">Haprxoy</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Https/">Https</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/tcp-ip/">tcp/ip</a></li></ul></div><div class="widget"><div class="widget-title"><i class="fa fa-star-o"> 标签</i></div><div class="tagcloud"><a href="/tags/Haproxy/" style="font-size: 15px;">Haproxy</a> <a href="/tags/负载均衡/" style="font-size: 15px;">负载均衡</a> <a href="/tags/Https/" style="font-size: 15px;">Https</a> <a href="/tags/linux/" style="font-size: 15px;">linux</a> <a href="/tags/tcp-ip/" style="font-size: 15px;">tcp/ip</a></div></div><div class="widget"><div class="widget-title"><i class="fa fa-file-o"> 最近文章</i></div><ul class="post-list"><li class="post-list-item"><a class="post-list-link" href="/2018/04/12/2018-04-12-haproxy-port-reuse/">Haproxy 端口复用</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/02/27/2018-02-26-netfilter/">netfilter 框架及lvs的实现原理</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/01/21/2018-01-21-linux-close/">linux close 过程</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/01/20/2018-01-20-tcp-rcv/">linux tcp recv 调用</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/01/17/2018-01-17-linux-send/">linux tcp send过程</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/01/15/2018-01-15-linux-connect/">linux connect 过程</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/01/10/2018-01-10-linux-tcp-server-handshake-2/">linux tcp 服务端ack接收</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/01/04/2018-04-linux-tcp-server-handshake/">linux tcp 服务端syn包接收</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/01/03/2018-01-03-linux-listen/">linux listen 过程</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/01/02/2018-01-02-udp-msg-handler/">linux udp 数据接收和发送过程</a></li></ul></div></div></div><div class="pure-u-1 pure-u-md-3-4"><div id="footer">Copyright © 2018 <a href="/." rel="nofollow">天天反水, 美女荷官发牌   ---澳门新葡京.</a> Powered by<a rel="nofollow" target="_blank" href="https://hexo.io"> Hexo.</a><a rel="nofollow" target="_blank" href="https://github.com/tufu9441/maupassant-hexo"> Theme</a> by<a rel="nofollow" target="_blank" href="https://github.com/pagecho"> Cho.</a></div></div></div><a id="rocket" href="#top" class="show"></a><script type="text/javascript" src="/js/totop.js?v=0.0.0" async></script><script type="text/javascript" src="//cdn.bootcss.com/fancybox/3.1.20/jquery.fancybox.min.js" async></script><script type="text/javascript" src="/js/fancybox.js?v=0.0.0" async></script><link rel="stylesheet" type="text/css" href="//cdn.bootcss.com/fancybox/3.1.20/jquery.fancybox.min.css"><script type="text/javascript" src="/js/codeblock-resizer.js?v=0.0.0"></script><script type="text/javascript" src="/js/smartresize.js?v=0.0.0"></script></div></body></html>
