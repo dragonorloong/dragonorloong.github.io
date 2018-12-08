@@ -1,0 +1,233 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta name="generator" content="Hexo 3.8.0"><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport"><meta content="yes" name="apple-mobile-web-app-capable"><meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"><meta content="telephone=no" name="format-detection"><meta name="description" content="澳门新葡京"><title>dpvs大部分知识 | 天天反水, 美女荷官发牌   ---澳门新葡京</title><link rel="stylesheet" type="text/css" href="/css/style.css?v=0.0.0"><link rel="stylesheet" type="text/css" href="//cdn.bootcss.com/normalize/7.0.0/normalize.min.css"><link rel="stylesheet" type="text/css" href="//cdn.bootcss.com/pure/1.0.0/pure-min.css"><link rel="stylesheet" type="text/css" href="//cdn.bootcss.com/pure/1.0.0/grids-responsive-min.css"><link rel="stylesheet" href="//cdn.bootcss.com/font-awesome/4.7.0/css/font-awesome.min.css"><script type="text/javascript" src="//cdn.bootcss.com/jquery/3.2.1/jquery.min.js"></script><link rel="Shortcut Icon" type="image/x-icon" href="/favicon.ico"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png"></head><body><div class="body_container"><div id="header"><div class="site-name"><h1 class="hidden">dpvs大部分知识</h1><a id="logo" href="/.">天天反水, 美女荷官发牌   ---澳门新葡京</a><p class="description"></p></div><div id="nav-menu"><a href="/." class="current"><i class="fa fa-home"> 首页</i></a><a href="/archives/"><i class="fa fa-archive"> 归档</i></a><a href="/about/"><i class="fa fa-user"> 关于</i></a></div></div><div id="layout" class="pure-g"><div class="pure-u-1 pure-u-md-3-4"><div class="content_container"><div class="post"><h1 class="post-title">dpvs大部分知识</h1><div class="post-meta">Dec 4, 2018</div><div class="post-content"><h1 id="netif-初始化"><a href="#netif-初始化" class="headerlink" title="netif 初始化"></a>netif 初始化</h1><p>int netif_init(const struct rte_eth_conf *conf)<br>{<br>    cycles_per_sec = rte_get_timer_hz();<br>    //每个numa node创建一个pktmbuf_pool, 存储在pktmbuf_pool中<br>    netif_pktmbuf_pool_init();</p>
+<pre><code>//每个和创建一个rte_ring，存储在arp_ring中
+netif_arp_ring_init();
+
+//初始化协议列表，pkt_type_tab
+netif_pkt_type_tab_init();
+
+//初始化job类型列表，netif_lcore_jobs
+netif_lcore_jobs_init();
+// use default port conf if conf=NULL
+
+//初始化网卡
+netif_port_init(conf);
+
+//初始化lcore与port与queue的关系
+netif_lcore_init();
+return EDPVS_OK;
+</code></pre><p>}</p>
+<p>netif_port_init() {<br>    // port hash表<br>    for (i = 0; i &lt; NETIF_PORT_TABLE_BUCKETS; i++)<br>        INIT_LIST_HEAD(&amp;port_tab[i]);</p>
+<pre><code>//name hash 表
+for (i = 0; i &lt; NETIF_PORT_TABLE_BUCKETS; i++)
+    INIT_LIST_HEAD(&amp;port_ntab[i]);
+
+//调用dpdk kni接口初始化kni的资源分配
+rte_kni_init(NETIF_MAX_KNI);
+
+//kni init
+kni_init();
+
+//初始化netif_port
+netif_rte_port_alloc
+
+//插入上面两个hash表中
+netif_port_register
+
+//每个port创建一个kni
+kni_add_dev
+</code></pre><p>}</p>
+<p>int kni_init(void)<br>{<br>    int i;<br>    char poolname[32];</p>
+<pre><code>for (i = 0; i &lt; get_numa_nodes(); i++) {
+    memset(poolname, 0, sizeof(poolname));
+    snprintf(poolname, sizeof(poolname) - 1, &quot;kni_mbuf_pool_%d&quot;, i);
+
+    kni_mbuf_pool[i] = rte_pktmbuf_pool_create(poolname, KNI_MBUFPOOL_ELEMS,
+            KNI_MBUFPOOL_CACHE_SIZE, 0, RTE_MBUF_DEFAULT_BUF_SIZE, i);
+    if (!kni_mbuf_pool[i])
+        rte_exit(EXIT_FAILURE, &quot;Fail to create pktmbuf_pool for kni.&quot;);
+}
+
+return EDPVS_OK;
+</code></pre><p>}    </p>
+<p>netif_lcore_init() {<br>    初始化全局变量lcore_conf，映射关系为<br>    cpu-&gt;port-queue-&gt;buf </p>
+<pre><code>/* register lcore jobs*/
+snprintf(netif_jobs[0].name, sizeof(netif_jobs[0].name) - 1, &quot;%s&quot;, &quot;recv_fwd&quot;);
+netif_jobs[0].func = lcore_job_recv_fwd;
+netif_jobs[0].data = NULL;
+netif_jobs[0].type = NETIF_LCORE_JOB_LOOP;
+snprintf(netif_jobs[1].name, sizeof(netif_jobs[1].name) - 1, &quot;%s&quot;, &quot;xmit&quot;);
+netif_jobs[1].func = lcore_job_xmit;
+netif_jobs[1].data = NULL;
+netif_jobs[1].type = NETIF_LCORE_JOB_LOOP;
+snprintf(netif_jobs[2].name, sizeof(netif_jobs[2].name) - 1, &quot;%s&quot;, &quot;timer_manage&quot;);
+netif_jobs[2].func = lcore_job_timer_manage;
+netif_jobs[2].data = NULL;
+netif_jobs[2].type = NETIF_LCORE_JOB_LOOP;
+
+for (ii = 0; ii &lt; NETIF_JOB_COUNT; ii++) {
+    res = netif_lcore_loop_job_register(&amp;netif_jobs[ii]);
+    if (res &lt; 0) {
+        rte_exit(EXIT_FAILURE,
+                &quot;[%s] Fail to register netif lcore jobs, exiting ...\n&quot;, __func__);
+        break;
+    }
+}
+
+/三个消息，根据类型注册到netif_lcore_jobs的列表中
+</code></pre><p>}</p>
+<p>#ctrl 初始化<br>int ctrl_init() {<br>  //初始化每个核的msg类型数组<br>  //初始化每个核心的msg ring<br>  //注册msg处理函数<br>  msg_init()</p>
+<p>  //创建unix domain监听<br>  sockopt_init<br>}</p>
+<h1 id="inet-初始化"><a href="#inet-初始化" class="headerlink" title="inet 初始化"></a>inet 初始化</h1><p>int inet_init(void)<br>{<br>    int err;<br>    if ((err = neigh_init()) != 0)<br>        return err;<br>    if ((err = route_init()) != 0)<br>        return err;<br>    if ((err = ipv4_init()) != 0)<br>        return err;<br>    if ((err = icmp_init()) != 0)<br>        return err;<br>    if ((err = inet_addr_init()) != 0)<br>        return err;</p>
+<pre><code>return EDPVS_OK;
+</code></pre><p>}</p>
+<p>int neigh_init(void)<br>{<br>    if(EDPVS_NOMEM == arp_init()){<br>        return EDPVS_NOMEM;<br>    }</p>
+<pre><code>return EDPVS_OK;
+</code></pre><p>} </p>
+<p>arp_init() {<br>    //注册arp协议, pkt_type_tab在netif中初始化<br>    static struct pkt_type arp_pkt_type = {<br>        .func       = neigh_resolve_input,<br>        .port       = NULL,<br>    };</p>
+<pre><code>arp_pkt_type.type = rte_cpu_to_be_16(ETHER_TYPE_ARP);
+if ((err = netif_register_pkt(&amp;arp_pkt_type)) != EDPVS_OK)
+    return err; 
+
+//注册命令行函数, arp获取和设置
+ static struct dpvs_sockopts neigh_sockopts = { 
+ .version     = SOCKOPT_VERSION,
+.get_opt_min = SOCKOPT_GET_NEIGH_SHOW,
+.get_opt_max = SOCKOPT_GET_NEIGH_SHOW,
+.get         = neigh_sockopt_get,
+
+.set_opt_min = SOCKOPT_SET_NEIGH_ADD,
+.set_opt_max = SOCKOPT_SET_NEIGH_DEL,
+.set         = neigh_sockopt_set,
+</code></pre><p>  };</p>
+<pre><code>//注册arp处理函数
+snprintf(neigh_sync_job.name, sizeof(neigh_sync_job.name) - 1, &quot;%s&quot;, &quot;neigh_sync&quot;);
+neigh_sync_job.func = neigh_process_ring;
+neigh_sync_job.data = NULL;
+neigh_sync_job.type = NETIF_LCORE_JOB_SLOW;
+neigh_sync_job.skip_loops = NEIGH_PROCESS_MAC_RING_INTERVAL;
+err = netif_lcore_loop_job_register(&amp;neigh_sync_job);
+</code></pre><p>}</p>
+<p>route_init() {<br>      //初始化路由表列表<br>      for (i = 0; i &lt; LOCAL_ROUTE_TAB_SIZE; i++)<br>        INIT_LIST_HEAD(&amp;this_local_route_table[i]);<br>      INIT_LIST_HEAD(&amp;this_net_route_table); </p>
+<pre><code>//注册路由添加和删除的消息
+memset(&amp;msg_type, 0, sizeof(struct dpvs_msg_type));
+msg_type.type   = MSG_TYPE_ROUTE_ADD;
+msg_type.mode   = DPVS_MSG_MULTICAST;
+msg_type.cid    = rte_lcore_id();
+msg_type.unicast_msg_cb = route_add_msg_cb;
+err = msg_type_mc_register(&amp;msg_type);
+if (err != EDPVS_OK) {
+    RTE_LOG(ERR, ROUTE, &quot;%s: fail to register msg.\n&quot;, __func__);
+    return err;
+}
+
+memset(&amp;msg_type, 0, sizeof(struct dpvs_msg_type));
+msg_type.type   = MSG_TYPE_ROUTE_DEL;
+msg_type.mode   = DPVS_MSG_MULTICAST;
+msg_type.cid    = rte_lcore_id();
+msg_type.unicast_msg_cb = route_del_msg_cb;
+err = msg_type_mc_register(&amp;msg_type);
+
+//注册sockopt_register
+static struct dpvs_sockopts route_sockopts = {
+  .version        = SOCKOPT_VERSION,
+  .set_opt_min    = SOCKOPT_SET_ROUTE_ADD,
+  .set_opt_max    = SOCKOPT_SET_ROUTE_FLUSH,
+  .set            = route_sockopt_set,
+  .get_opt_min    = SOCKOPT_GET_ROUTE_SHOW,
+  .get_opt_max    = SOCKOPT_GET_ROUTE_SHOW,
+  .get            = route_sockopt_get,
+};
+sockopt_register(&amp;route_sockopts)
+</code></pre><p>}</p>
+<p>int ipv4_init(void) {<br>  //注册ipv4协议<br>  //inet_prots 存储ipv4上层的协议<br>  netif_register_pkt(&amp;ip4_pkt_type)<br>}</p>
+<p>//注册icmp协议到ipv4中<br>int icmp_init(void)<br>{<br>    int err;</p>
+<pre><code>err = ipv4_register_protocol(&amp;icmp_protocol, IPPROTO_ICMP);                                                                                                                                                                              
+return err;
+</code></pre><p>}</p>
+<p>//添加删除ip初始化<br>static struct dpvs_sockopts ifa_sockopts = {<br>    .version        = SOCKOPT_VERSION,<br>    .set_opt_min    = SOCKOPT_SET_IFADDR_ADD,<br>    .set_opt_max    = SOCKOPT_SET_IFADDR_FLUSH,<br>    .set            = ifa_sockopt_set,<br>    .get_opt_min    = SOCKOPT_GET_IFADDR_SHOW,<br>    .get_opt_max    = SOCKOPT_GET_IFADDR_SHOW,<br>    .get            = ifa_sockopt_get,<br>};</p>
+<p>int inet_addr_init(void)<br>{<br>    int err, hash;<br>    rte_rwlock_init(&amp;in_addr_lock);<br>    rte_rwlock_write_lock(&amp;in_addr_lock);<br>    for (hash = 0; hash &lt; INET_ADDR_HSIZE; hash++)<br>        INIT_LIST_HEAD(&amp;in_addr_tab[hash]);<br>    rte_rwlock_write_unlock(&amp;in_addr_lock);</p>
+<pre><code>if ((err = sockopt_register(&amp;ifa_sockopts)) != EDPVS_OK)
+    return err;
+
+return EDPVS_OK;
+</code></pre><p>}</p>
+<p>//初始化socket address 地址池<br>static struct dpvs_msg_type sa_stats_msg = {<br>    .type           = MSG_TYPE_SAPOOL_STATS,<br>    .unicast_msg_cb = sa_msg_get_stats,<br>};</p>
+<p>int sa_pool_init(void)<br>{<br>    int shift, err;<br>    lcoreid_t cid;<br>    uint16_t port_base;</p>
+<pre><code>/* enabled lcore should not change after init */
+netif_get_slave_lcores(&amp;sa_nlcore, &amp;sa_lcore_mask);
+
+/* how many mask bits needed ? */
+for (shift = 0; (0x1&lt;&lt;shift) &lt; sa_nlcore; shift++)
+    ;
+if (shift &gt;= 16)
+    return EDPVS_INVAL; /* bad config */
+
+port_base = 0;
+//初始化fullnat时端口的分配策略，每个核心都有一个起始端口，每个分配都是加一个核心数的步长
+for (cid = 0; cid &lt; RTE_MAX_LCORE; cid++) {
+    if (cid &gt; 64 || !(sa_lcore_mask &amp; (1L &lt;&lt; cid)))
+        continue;
+    assert(rte_lcore_is_enabled(cid) &amp;&amp; cid != rte_get_master_lcore());
+
+    sa_fdirs[cid].mask = ~((~0x0) &lt;&lt; shift);
+    sa_fdirs[cid].lcore = cid;
+    sa_fdirs[cid].port_base = htons(port_base);
+    sa_fdirs[cid].soft_id = 0;
+
+    port_base++;
+}
+
+err = msg_type_mc_register(&amp;sa_stats_msg);
+
+return err;
+</code></pre><p>}</p>
+<p>int dp_vs_init() {<br>  // dp_vs_proto_init注册支持的协议，包括tcp，udp， icmp<br>  dp_vs_proto_init()</p>
+<p>  //注册local addr操作socket命令<br>  dp_vs_laddr_init</p>
+<p>  //均衡算法<br>  dp_vs_sched_init()</p>
+<p>  //黑名单list注册<br>  dp_vs_blklst_init</p>
+<p>  //注册hook<br>  ipv4_register_hooks(dp_vs_ops, NELEMS(dp_vs_ops));<br>}</p>
+<p>//设置描述符长度，队列数量，fdir参数<br>netif_port_start</p>
+<p>lcore执行的任务<br>1 lcore_job_recv_fwd<br>2 lcore_job_xmit<br>3 lcore_job_timer_manage<br>//处理msg消息<br>4 slave_lcore_loop_func<br>//主要是控制面主动添加删除arp信息<br>5 neigh_process_ring SLOW</p>
+<p>master core执行的任务</p>
+<ol>
+<li>处理ipc消息</li>
+<li>处理自身的msg</li>
+<li>处理定时器</li>
+<li>处理arp消息, 主要是添加和更新删除邻居表, neigh_ring</li>
+</ol>
+<p>arp处理总结, arp表每个核都有一个, </p>
+<ol>
+<li>收到arp类型的包，拷贝给所有别的逻辑核arp_ring</li>
+<li>本核心继续调用上层协议解析, 查询路由，假如是发给本地的，直接发送响应, 从逻辑核心的队列中随机选一个来发送</li>
+<li>假如是响应，直接通过修改本核心的邻居表，并且发送本地的等待查询arp而阻塞发送的包</li>
+<li>对于别的核心发过来的包，直接重复2.3 步进行处理</li>
+</ol>
+<p>kni 处理</p>
+<ol>
+<li>arp请求，dpvs处理不了，推送到kni_mbufs 队列中，每个逻辑核心一个队列</li>
+<li>传输层找不到对应的协议，推送到kni_mbufs中</li>
+<li>路由查询不到，，或者设置了路由标志为RTE_KNI，或者ip地址没有绑定在本机上，推送到kni队列里面</li>
+<li>调用kni_send2kern_loop发送给内核端口</li>
+<li>网卡设置了NETIF_PORT_FLAG_FORWARD2KNI标志，所有的包都会拷贝一份给内核</li>
+<li>master核心负责读取数据，然后随机选取一个逻辑核心发出去</li>
+</ol>
+<p>// fdir怎么处理？<br>icmp 处理</p>
+<ol>
+<li>对于echo类型icmp报文，直接发送响应报文回去</li>
+<li>其余类型返回内核协议栈处理</li>
+<li>进入dpvs_in, 处理ICMP_DEST_UNREACH(目的不可达)/ICMP_SOURCE_QUENCH(速度抑制, 已经废弃)/ICMP_TIME_EXCEEDED(ttl过期)只处理这三种类型</li>
+<li>icmp 头部会保留原始协议的头部，根据原始协议的头部，获取连接，发送出去</li>
+</ol>
+<p>//收发包模型</p>
+<ol>
+<li>收发在一个核上，所以，每个核都要关注所有网卡，不然有可能发送出去的包找不到对应的出口队列</li>
+<li>收包时设置fdir，dpdk只会把包送到一个队列中</li>
+<li>kni 收包放到master thread中</li>
+</ol>
+<p>// fullnat处理</p>
+<ol>
+<li>为每个vip:portf添加一个local ip</li>
+<li>添加local ip时，会创建一个ifa数据结构绑定到port上，针对每个逻辑核心，都分配一个sa_pool结构，sa_pool-&gt;pool_hash[]-&gt;sa_entry_pool[]</li>
+<li>分配本地端口时，先轮询vip:port的local ip列表，然后选择其中一个，然后根据目的ip+port hash，然后再找里面的空闲port，失败时，会重试</li>
+</ol>
+</div><div class="tags"><a href="/tags/dpdk/">dpdk</a><a href="/tags/dpvs/">dpvs</a></div><div class="post-nav"><a href="/2018/12/04/2018-12-04-dpvs-timer/" class="next">dpvs timer</a></div></div></div></div><div class="pure-u-1-4 hidden_mid_and_down"><div id="sidebar"><div class="widget"><div class="widget-title"><i class="fa fa-folder-o"> 分类</i></div><ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/Haprxoy/">Haprxoy</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Https/">Https</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/tcp-ip/">tcp/ip</a></li></ul></div><div class="widget"><div class="widget-title"><i class="fa fa-star-o"> 标签</i></div><div class="tagcloud"><a href="/tags/Haproxy/" style="font-size: 15px;">Haproxy</a> <a href="/tags/负载均衡/" style="font-size: 15px;">负载均衡</a> <a href="/tags/Https/" style="font-size: 15px;">Https</a> <a href="/tags/linux/" style="font-size: 15px;">linux</a> <a href="/tags/tcp-ip/" style="font-size: 15px;">tcp/ip</a> <a href="/tags/dpdk/" style="font-size: 15px;">dpdk</a> <a href="/tags/dpvs/" style="font-size: 15px;">dpvs</a></div></div><div class="widget"><div class="widget-title"><i class="fa fa-file-o"> 最近文章</i></div><ul class="post-list"><li class="post-list-item"><a class="post-list-link" href="/2018/12/04/2018-12-04-netif-init/">dpvs大部分知识</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/12/04/2018-12-04-dpvs-timer/">dpvs timer</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/12/02/2018-12-2-kni/">dpdk kni</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/12/01/2018-12-01-pci-init/">dpdk网卡收发包</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/11/29/2018-11-29-dpdk-memory/">dpdk 内存管理</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/11/26/2018-11-26-dpdk-init/">dpdk rte init</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/11/08/2018-11-07-numa/">dpdk基础知识</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/11/06/2018-11-06-dpdk-framework/">dpdk 基本框架</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/04/12/2018-04-12-haproxy-port-reuse/">Haproxy 端口复用</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/02/27/2018-02-26-netfilter/">netfilter 框架及lvs的实现原理</a></li></ul></div></div></div><div class="pure-u-1 pure-u-md-3-4"><div id="footer">Copyright © 2018 <a href="/." rel="nofollow">天天反水, 美女荷官发牌   ---澳门新葡京.</a> Powered by<a rel="nofollow" target="_blank" href="https://hexo.io"> Hexo.</a><a rel="nofollow" target="_blank" href="https://github.com/tufu9441/maupassant-hexo"> Theme</a> by<a rel="nofollow" target="_blank" href="https://github.com/pagecho"> Cho.</a></div></div></div><a id="rocket" href="#top" class="show"></a><script type="text/javascript" src="/js/totop.js?v=0.0.0" async></script><script type="text/javascript" src="//cdn.bootcss.com/fancybox/3.1.20/jquery.fancybox.min.js" async></script><script type="text/javascript" src="/js/fancybox.js?v=0.0.0" async></script><link rel="stylesheet" type="text/css" href="//cdn.bootcss.com/fancybox/3.1.20/jquery.fancybox.min.css"><script type="text/javascript" src="/js/codeblock-resizer.js?v=0.0.0"></script><script type="text/javascript" src="/js/smartresize.js?v=0.0.0"></script></div></body></html>

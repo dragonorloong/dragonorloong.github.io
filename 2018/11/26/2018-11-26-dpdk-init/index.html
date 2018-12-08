@@ -1,0 +1,147 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta name="generator" content="Hexo 3.8.0"><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport"><meta content="yes" name="apple-mobile-web-app-capable"><meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"><meta content="telephone=no" name="format-detection"><meta name="description" content="澳门新葡京"><title>dpdk rte init | 天天反水, 美女荷官发牌   ---澳门新葡京</title><link rel="stylesheet" type="text/css" href="/css/style.css?v=0.0.0"><link rel="stylesheet" type="text/css" href="//cdn.bootcss.com/normalize/7.0.0/normalize.min.css"><link rel="stylesheet" type="text/css" href="//cdn.bootcss.com/pure/1.0.0/pure-min.css"><link rel="stylesheet" type="text/css" href="//cdn.bootcss.com/pure/1.0.0/grids-responsive-min.css"><link rel="stylesheet" href="//cdn.bootcss.com/font-awesome/4.7.0/css/font-awesome.min.css"><script type="text/javascript" src="//cdn.bootcss.com/jquery/3.2.1/jquery.min.js"></script><link rel="Shortcut Icon" type="image/x-icon" href="/favicon.ico"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png"></head><body><div class="body_container"><div id="header"><div class="site-name"><h1 class="hidden">dpdk rte init</h1><a id="logo" href="/.">天天反水, 美女荷官发牌   ---澳门新葡京</a><p class="description"></p></div><div id="nav-menu"><a href="/." class="current"><i class="fa fa-home"> 首页</i></a><a href="/archives/"><i class="fa fa-archive"> 归档</i></a><a href="/about/"><i class="fa fa-user"> 关于</i></a></div></div><div id="layout" class="pure-g"><div class="pure-u-1 pure-u-md-3-4"><div class="content_container"><div class="post"><h1 class="post-title">dpdk rte init</h1><div class="post-meta">Nov 26, 2018</div><div class="post-content"><p>rte_eal_init(int argc, char <strong>argv)<br>  rte_eal_cpu_init<br>    struct lcore_config {<br>      unsigned detected;         /</strong>&lt; true if lcore was detected <em>/<br>      pthread_t thread_id;       /**&lt; pthread identifier </em>/<br>      int pipe_master2slave[2];  /<strong>&lt; communication pipe with master */<br>      int pipe_slave2master[2];  /</strong>&lt; communication pipe with master <em>/<br>      lcore_function_t </em> volatile f;         /<strong>&lt; function to call <em>/<br>      void </em> volatile arg;       /</strong>&lt; argument of function <em>/<br>      volatile int ret;          /**&lt; return value of function </em>/<br>      volatile enum rte_lcore_state_t state; /<strong>&lt; lcore state */<br>      unsigned socket_id;        /</strong>&lt; physical socket id for this lcore <em>/<br>      unsigned core_id;          /**&lt; core number on socket for this lcore </em>/<br>      int core_index;            /<strong>&lt; relative index, starting from 0 */<br>      rte_cpuset_t cpuset;       /</strong>&lt; cpu set which the lcore affinity to <em>/<br>      uint8_t core_role;         /**&lt; role of core eg: OFF, RTE, SERVICE </em>/<br>    };</p>
+<pre><code>struct rte_mem_config {
+  volatile uint32_t magic;   /**&lt; Magic number - Sanity check. */
+
+  /* memory topology */
+  uint32_t nchannel;    /**&lt; Number of channels (0 if unknown). */
+  uint32_t nrank;       /**&lt; Number of ranks (0 if unknown). */
+
+  /**
+   * current lock nest order
+   *  - qlock-&gt;mlock (ring/hash/lpm)
+   *  - mplock-&gt;qlock-&gt;mlock (mempool)
+   * Notice:
+   *  *ALWAYS* obtain qlock first if having to obtain both qlock and mlock
+   */
+  rte_rwlock_t mlock;   /**&lt; only used by memzone LIB for thread-safe. */
+  rte_rwlock_t qlock;   /**&lt; used for tailq operation for thread safe. */
+  rte_rwlock_t mplock;  /**&lt; only used by mempool LIB for thread-safe. */
+
+  uint32_t memzone_cnt; /**&lt; Number of allocated memzones */
+
+  /* memory segments and zones */
+  struct rte_memseg memseg[RTE_MAX_MEMSEG];    /**&lt; Physmem descriptors. */
+  struct rte_memzone memzone[RTE_MAX_MEMZONE]; /**&lt; Memzone descriptors. */
+
+  struct rte_tailq_head tailq_head[RTE_MAX_TAILQ]; /**&lt; Tailqs for objects */
+
+  /* Heaps of Malloc per socket */
+  struct malloc_heap malloc_heaps[RTE_MAX_NUMA_NODES];
+
+  /* address of mem_config in primary process. used to map shared config into
+   * exact same address the primary process maps it.
+   */
+  uint64_t mem_cfg_addr;
+} __attribute__((__packed__));
+
+
+
+  /**
+ * Internal configuration (per-lcore)
+ */
+extern struct lcore_config lcore_config[RTE_MAX_LCORE];
+
+struct rte_config {
+  uint32_t master_lcore;       /**&lt; Id of the master lcore */
+  uint32_t lcore_count;        /**&lt; Number of available logical cores. */
+  uint32_t service_lcore_count;/**&lt; Number of available service cores. */
+  enum rte_lcore_role_t lcore_role[RTE_MAX_LCORE]; /**&lt; State of cores. */
+
+  /** Primary or secondary configuration */
+  enum rte_proc_type_t process_type;
+
+  /** PA or VA mapping mode */
+  enum rte_iova_mode iova_mode;
+
+  /**
+   * Pointer to memory configuration, which may be shared across multiple
+   * DPDK instances
+   */
+  struct rte_mem_config *mem_config;
+} __attribute__((__packed__));
+
+//获取每个逻辑核的信息
+1. 判断逻辑核存不存在，通过获取/sys/devices/system/cpu/cpu$i 文件是否存在来判断
+  lcore_config[lcore_id].detected = eal_cpu_detected(lcore_id);
+2.  
+  CPU_SET(lcore_id, &amp;lcore_config[lcore_id].cpuset);
+  /* By default, each detected core is enabled */
+  config-&gt;lcore_role[lcore_id] = ROLE_RTE;
+  lcore_config[lcore_id].core_role = ROLE_RTE;
+  //通过/sys/devices/system/cpu/cpu20/topology/core_id 获取物理核的id
+  lcore_config[lcore_id].core_id = eal_cpu_core_id(lcore_id);
+  //通过/sys/devices/system/node/node0/cpu0/ 获取插槽地址
+  lcore_config[lcore_id].socket_id = eal_cpu_socket_id(lcore_id); 
+
+3. 设置config.count核机器逻辑核数
+  config-&gt;lcore_count = count;
+</code></pre><p>  //rte_bus_list通过外部调用构造函数RTE_REGISTER_BUS注册<br>  /<em><br>  struct rte_pci_bus rte_pci_bus = {<br>  .bus = {<br>    .scan = rte_pci_scan,                                                                                                                                                                                                                        .probe = rte_pci_probe,<br>    .find_device = pci_find_device,<br>    .plug = pci_plug,<br>    .unplug = pci_unplug,<br>    .parse = pci_parse,<br>    .get_iommu_class = rte_pci_get_iommu_class,<br>  },<br>  .device_list = TAILQ_HEAD_INITIALIZER(rte_pci_bus.device_list),<br>  .driver_list = TAILQ_HEAD_INITIALIZER(rte_pci_bus.driver_list),<br>  };
+  </em>/</p>
+<p>  int rte_bus_scan(void)<br>  {<br>    int ret;<br>    struct rte_bus *bus = NULL;</p>
+<pre><code>TAILQ_FOREACH(bus, &amp;rte_bus_list, next) {
+  ret = bus-&gt;scan();
+  if (ret)
+    RTE_LOG(ERR, EAL, &quot;Scan for (%s) bus failed.\n&quot;,
+      bus-&gt;name);
+}
+
+    ,
+return 0;
+</code></pre><p>  }<br>        ,</p>
+<p>//获取pci文件夹，扫描子文件，获得pci信息， pci信息地址为：/sys/bus/pci/devices<br>    0000:80:05.2    </p>
+<pre><code>struct {
+  char *domain;
+  char *bus;
+  char *devid;
+  char *function;
+};
+</code></pre><p>int<br>rte_pci_scan(void)<br>{<br>  struct dirent <em>e;<br>  DIR </em>dir;<br>  char dirname[PATH_MAX];<br>  struct rte_pci_addr addr;</p>
+<p>  /<em> for debug purposes, PCI can be disabled </em>/<br>  if (!rte_eal_has_pci())<br>    return 0;</p>
+<p>#ifdef VFIO_PRESENT<br>  if (!pci_vfio_is_enabled())<br>    RTE_LOG(DEBUG, EAL, “VFIO PCI modules not loaded\n”);</p>
+<p>#endif</p>
+<p>  dir = opendir(rte_pci_get_sysfs_path());<br>  if (dir == NULL) {<br>    RTE_LOG(ERR, EAL, “%s(): opendir failed: %s\n”,<br>      <strong>func</strong>, strerror(errno));<br>    return -1;<br>  }</p>
+<p>  while ((e = readdir(dir)) != NULL) {<br>    if (e-&gt;d_name[0] == ‘.’)<br>      continue;</p>
+<pre><code>if (parse_pci_addr_format(e-&gt;d_name, sizeof(e-&gt;d_name), &amp;addr) != 0)
+  continue;
+
+snprintf(dirname, sizeof(dirname), &quot;%s/%s&quot;,
+    rte_pci_get_sysfs_path(), e-&gt;d_name);
+
+if (pci_scan_one(dirname, &amp;addr) &lt; 0)
+  goto error;
+</code></pre><p>  }<br>  closedir(dir);</p>
+<p>error:<br>  closedir(dir);<br>  return -1;<br>}</p>
+<p>struct rte_pci_device {<br>  TAILQ_ENTRY(rte_pci_device) next;   /<strong>&lt; Next probed PCI device. */<br>  struct rte_device device;           /</strong>&lt; Inherit core device <em>/<br>  struct rte_pci_addr addr;           /**&lt; PCI location. </em>/<br>  struct rte_pci_id id;               /<strong>&lt; PCI ID. */<br>  struct rte_mem_resource mem_resource[PCI_MAX_RESOURCE];<br>              /</strong>&lt; PCI Memory Resource <em>/<br>  struct rte_intr_handle intr_handle; /**&lt; Interrupt handle </em>/<br>  struct rte_pci_driver <em>driver;      /**&lt; Associated driver </em>/<br>  uint16_t max_vfs;                   /<strong>&lt; sriov enable if not zero */<br>  enum rte_kernel_driver kdrv;        /</strong>&lt; Kernel driver passthrough <em>/<br>  char name[PCI_PRI_STR_SIZE+1];      /**&lt; PCI location (ASCII) </em>/<br>};</p>
+<p>pci_scan_one() {<br>  //获取pci的厂商，匹配驱动时使用到的信息</p>
+<ol>
+<li>vendor</li>
+<li>device</li>
+<li>subsystem_vendor</li>
+<li>subsystem_device</li>
+<li>class</li>
+<li>max_vfs</li>
+<li>numa node绑定的node信息</li>
+<li>driver 信息</li>
+<li><p>resource 信息 存储到mem_resource结构中</p>
+<p>if (!ret) {<br>if (!strcmp(driver, “vfio-pci”))<br> dev-&gt;kdrv = RTE_KDRV_VFIO;<br>else if (!strcmp(driver, “igb_uio”))<br> dev-&gt;kdrv = RTE_KDRV_IGB_UIO;<br>else if (!strcmp(driver, “uio_pci_generic”))<br> dev-&gt;kdrv = RTE_KDRV_UIO_GENERIC;<br>else<br> dev-&gt;kdrv = RTE_KDRV_UNKNOWN;<br>} else<br>dev-&gt;kdrv = RTE_KDRV_NONE;<br>}</p>
+<p>//存入rte_pci_bus中<br>if (TAILQ_EMPTY(&amp;rte_pci_bus.device_list)) {<br>rte_pci_add_device(dev);</p>
+</li>
+</ol>
+<p>}</p>
+<p>struct internal_config {<br>  volatile size_t memory;           /<strong>&lt; amount of asked memory */<br>  volatile unsigned force_nchannel; /</strong>&lt; force number of channels <em>/<br>  volatile unsigned force_nrank;    /**&lt; force number of ranks </em>/<br>  volatile unsigned no_hugetlbfs;   /<strong>&lt; true to disable hugetlbfs */<br>  unsigned hugepage_unlink;         /</strong>&lt; true to unlink backing files <em>/<br>  volatile unsigned no_pci;         /**&lt; true to disable PCI </em>/<br>  volatile unsigned no_hpet;        /<strong>&lt; true to disable HPET */<br>  volatile unsigned vmware_tsc_map; /</strong>&lt; true to use VMware TSC mapping</p>
+<pre><code>* instead of native TSC */
+</code></pre><p>  volatile unsigned no_shconf;      /<strong>&lt; true if there is no shared config */<br>  volatile unsigned create_uio_dev; /</strong>&lt; true to create /dev/uioX devices <em>/<br>  volatile enum rte_proc_type_t process_type; /**&lt; multi-process proc type </em>/<br>  /<strong> true to try allocating memory on specific sockets */<br>  volatile unsigned force_sockets;<br>  volatile uint64_t socket_mem[RTE_MAX_NUMA_NODES]; /</strong>&lt; amount of memory per socket <em>/<br>  uintptr_t base_virtaddr;          /**&lt; base address to try and reserve memory from </em>/<br>  volatile int syslog_facility;   /<strong>&lt; facility passed to openlog() */<br>  /</strong> default interrupt mode for VFIO <em>/<br>  volatile enum rte_intr_mode vfio_intr_mode;<br>  const char </em>hugefile_prefix;      /<strong>&lt; the base filename of hugetlbfs files <em>/<br>  const char </em>hugepage_dir;         /</strong>&lt; specific hugetlbfs directory to use <em>/<br>  const char </em>mbuf_pool_ops_name;   /<strong>&lt; mbuf pool ops name */<br>  unsigned num_hugepage_sizes;      /</strong>&lt; how many sizes on this system */<br>  struct hugepage_info hugepage_info[MAX_HUGEPAGE_SIZES];<br>};</p>
+<p>//eal_hugepage_info_init 扫描hugepages信息，并且把hugepage保存到internal_config-&gt;hugepage_info文件中<br>/sys/kernel/mm/hugepages<br>struct hugepage_info {<br>  uint64_t hugepage_sz;   /<strong>&lt; size of a huge page <em>/<br>  const char </em>hugedir;    /</strong>&lt; dir where hugetlbfs is mounted <em>/<br>  uint32_t num_pages[RTE_MAX_NUMA_NODES];<br>        /**&lt; number of hugepages of that size on each socket </em>/<br>  int lock_descriptor;    /*<em>&lt; file descriptor for hugepage dir </em>/<br>};</p>
+<p>eal_hugepage_info_init() {<br>}</p>
+<p>//对于每一个页，创建一个文件，mmap，获取虚拟地址, 每个文件对应一个hugepage_file<br>// 虚拟地址获取物理地址 通过/proc/self/pagemap 获取<br>// socket id 通过/proc/self/numa_maps 获取<br>// 根据物理地址排序，尽量把物理地址相同的虚拟地址映射到一起<br>struct hugepage_file {                                                                                                                                                                                                                         void <em>orig_va;      /**&lt; virtual addr of first mmap() </em>/<br>  void <em>final_va;     /**&lt; virtual addr of 2nd mmap() </em>/<br>  uint64_t physaddr;  /<strong>&lt; physical addr */<br>  size_t size;        /</strong>&lt; the page size <em>/<br>  int socket_id;      /**&lt; NUMA socket ID </em>/<br>  int file_id;        /<strong>&lt; the ‘%d’ in HUGEFILE_FMT */<br>  int memseg_id;      /</strong>&lt; the memory segment to which page belongs <em>/<br>  char filepath[MAX_HUGEPAGE_PATH]; /**&lt; path to backing file on filesystem </em>/<br>};</p>
+<p>rte_eal_memory_init(void) {<br>  rte_eal_hugepage_init()<br>}</p>
+<p>//每一页都是一个elem, 都会按照大小，连接到free_head上面<br>struct malloc_elem {<br>  struct malloc_heap <em>heap;<br>  struct malloc_elem </em>volatile prev;      /<em> points to prev elem in memseg </em>/<br>  LIST_ENTRY(malloc_elem) free_list;      /<em> list of free elements in heap </em>/<br>  const struct rte_memseg *ms;<br>  volatile enum elem_state state;<br>  uint32_t pad;<br>  size_t size;</p>
+<p>#ifdef RTE_MALLOC_DEBUG<br>  uint64_t header_cookie;         /<em> Cookie marking start of data </em>/<br>                                  /<em> trailer cookie at start + size </em>/</p>
+<p>#endif<br>} __rte_cache_aligned;</p>
+<p>struct malloc_heap {<br>  rte_spinlock_t lock;<br>  LIST_HEAD(, malloc_elem) free_head[RTE_HEAP_NUM_FREELISTS];<br>  unsigned alloc_count;<br>  size_t total_size;<br>} __rte_cache_aligned;</p>
+<p>每个页面创建一个, 路径a在/dev/hugepages<br>最后按照物理内存排序，存储在全局变量rte_config.mem_config中<br>      mcfg-&gt;memseg[j].iova = hugepage[i].physaddr;<br>      mcfg-&gt;memseg[j].addr = hugepage[i].final_va;<br>      mcfg-&gt;memseg[j].len = hugepage[i].size;<br>      mcfg-&gt;memseg[j].socket_id = hugepage[i].socket_id;<br>      mcfg-&gt;memseg[j].hugepage_sz = hugepage[i].size;</p>
+<p>全局内存存储在/var/run/.hupageinfo路径下</p>
+<p>初始内部堆：<br>rte_eal_memzone_init<br>  rte_eal_malloc_heap_init</p>
+<p>  每个socket有一个在mcfg的malloc_heaps有一个堆，</p>
+<p>iommu  <a href="https://www.jianshu.com/p/dd8ab6b68c6a" target="_blank" rel="noopener">https://www.jianshu.com/p/dd8ab6b68c6a</a></p>
+</div><div class="tags"><a href="/tags/dpdk/">dpdk</a></div><div class="post-nav"><a href="/2018/11/29/2018-11-29-dpdk-memory/" class="pre">dpdk 内存管理</a><a href="/2018/11/08/2018-11-07-numa/" class="next">dpdk基础知识</a></div></div></div></div><div class="pure-u-1-4 hidden_mid_and_down"><div id="sidebar"><div class="widget"><div class="widget-title"><i class="fa fa-folder-o"> 分类</i></div><ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/Haprxoy/">Haprxoy</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/Https/">Https</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/tcp-ip/">tcp/ip</a></li></ul></div><div class="widget"><div class="widget-title"><i class="fa fa-star-o"> 标签</i></div><div class="tagcloud"><a href="/tags/Haproxy/" style="font-size: 15px;">Haproxy</a> <a href="/tags/负载均衡/" style="font-size: 15px;">负载均衡</a> <a href="/tags/Https/" style="font-size: 15px;">Https</a> <a href="/tags/linux/" style="font-size: 15px;">linux</a> <a href="/tags/tcp-ip/" style="font-size: 15px;">tcp/ip</a> <a href="/tags/dpdk/" style="font-size: 15px;">dpdk</a> <a href="/tags/dpvs/" style="font-size: 15px;">dpvs</a></div></div><div class="widget"><div class="widget-title"><i class="fa fa-file-o"> 最近文章</i></div><ul class="post-list"><li class="post-list-item"><a class="post-list-link" href="/2018/12/04/2018-12-04-netif-init/">dpvs大部分知识</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/12/04/2018-12-04-dpvs-timer/">dpvs timer</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/12/02/2018-12-2-kni/">dpdk kni</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/12/01/2018-12-01-pci-init/">dpdk网卡收发包</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/11/29/2018-11-29-dpdk-memory/">dpdk 内存管理</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/11/26/2018-11-26-dpdk-init/">dpdk rte init</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/11/08/2018-11-07-numa/">dpdk基础知识</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/11/06/2018-11-06-dpdk-framework/">dpdk 基本框架</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/04/12/2018-04-12-haproxy-port-reuse/">Haproxy 端口复用</a></li><li class="post-list-item"><a class="post-list-link" href="/2018/02/27/2018-02-26-netfilter/">netfilter 框架及lvs的实现原理</a></li></ul></div></div></div><div class="pure-u-1 pure-u-md-3-4"><div id="footer">Copyright © 2018 <a href="/." rel="nofollow">天天反水, 美女荷官发牌   ---澳门新葡京.</a> Powered by<a rel="nofollow" target="_blank" href="https://hexo.io"> Hexo.</a><a rel="nofollow" target="_blank" href="https://github.com/tufu9441/maupassant-hexo"> Theme</a> by<a rel="nofollow" target="_blank" href="https://github.com/pagecho"> Cho.</a></div></div></div><a id="rocket" href="#top" class="show"></a><script type="text/javascript" src="/js/totop.js?v=0.0.0" async></script><script type="text/javascript" src="//cdn.bootcss.com/fancybox/3.1.20/jquery.fancybox.min.js" async></script><script type="text/javascript" src="/js/fancybox.js?v=0.0.0" async></script><link rel="stylesheet" type="text/css" href="//cdn.bootcss.com/fancybox/3.1.20/jquery.fancybox.min.css"><script type="text/javascript" src="/js/codeblock-resizer.js?v=0.0.0"></script><script type="text/javascript" src="/js/smartresize.js?v=0.0.0"></script></div></body></html>
